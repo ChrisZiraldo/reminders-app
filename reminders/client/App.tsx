@@ -1,7 +1,20 @@
-import { FormEvent, useEffect, useState } from 'react';
-import './styles.css';
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import "./styles.css";
 
-type Reminder = { id: string; name: string; schedule: string; enabled: boolean; deliver: string };
+type Reminder = {
+  id: string;
+  name: string;
+  schedule: string;
+  enabled: boolean;
+  deliver: string;
+};
+type Filter = "all" | "active" | "paused";
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "paused", label: "Paused" },
+];
 
 function api(path: string) {
   return `${import.meta.env.BASE_URL}api${path}`;
@@ -9,119 +22,314 @@ function api(path: string) {
 
 async function request(url: string, options?: RequestInit) {
   const response = await fetch(url, options);
-  if (!response.ok) throw new Error('Reminder request failed');
+  if (!response.ok) throw new Error("Reminder request failed");
   return response.status === 204 ? undefined : response.json();
+}
+
+function PlusIcon() {
+  return (
+    <span className="qa-icon" aria-hidden="true">
+      <svg className="qa-icon-glyph" viewBox="0 0 16 16">
+        <path
+          d="M8 3.5v9M3.5 8h9"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M11.3 1.7a1.5 1.5 0 0 1 2.1 0l.9.9a1.5 1.5 0 0 1 0 2.1l-7.8 7.8-3.4.9.9-3.4Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M5 3v10M11 3v10"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function ResumeIcon() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M4.5 2.5v11l9-5.5-9-5.5Z" fill="currentColor" />
+    </svg>
+  );
 }
 
 export function App() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [name, setName] = useState('');
-  const [schedule, setSchedule] = useState('');
-  const [deliver, setDeliver] = useState('origin');
-  const [error, setError] = useState('');
+  const [name, setName] = useState("");
+  const [schedule, setSchedule] = useState("");
+  const [deliver, setDeliver] = useState("origin");
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [pending, setPending] = useState<Set<string>>(new Set());
 
   const reload = () =>
-    request(api('/reminders'))
+    request(api("/reminders"))
       .then((jobs) => setReminders(jobs as Reminder[]))
       .catch((cause) => setError(String(cause)));
-  useEffect(() => void reload(), []);
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  const activeCount = reminders.filter((job) => job.enabled).length;
+  const pausedCount = reminders.length - activeCount;
+  const visibleReminders = useMemo(
+    () =>
+      reminders.filter(
+        (job) =>
+          filter === "all" ||
+          (filter === "active" ? job.enabled : !job.enabled),
+      ),
+    [reminders, filter],
+  );
+
+  async function withPending(key: string, action: () => Promise<void>) {
+    setPending((current) => new Set(current).add(key));
+    try {
+      await action();
+    } catch (cause) {
+      setError(String(cause));
+    } finally {
+      setPending((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
 
   async function createReminder(event: FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !schedule.trim()) return;
-    try {
-      await request(api('/reminders'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), schedule: schedule.trim(), prompt: name.trim(), deliver: deliver.trim() }),
+    if (!name.trim() || !schedule.trim() || !deliver.trim()) return;
+    await withPending("create", async () => {
+      await request(api("/reminders"), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          schedule: schedule.trim(),
+          prompt: name.trim(),
+          deliver: deliver.trim(),
+        }),
       });
-      setName('');
-      setSchedule('');
+      setName("");
+      setSchedule("");
       await reload();
-    } catch (cause) {
-      setError(String(cause));
-    }
+    });
   }
 
-  async function control(job: Reminder, action: 'pause' | 'resume' | 'delete') {
-    try {
-      await request(api(`/reminders/${job.id}${action === 'delete' ? '' : `/${action}`}`), { method: action === 'delete' ? 'DELETE' : 'POST' });
+  async function control(job: Reminder, action: "pause" | "resume" | "delete") {
+    await withPending(`${action}:${job.id}`, async () => {
+      await request(
+        api(`/reminders/${job.id}${action === "delete" ? "" : `/${action}`}`),
+        { method: action === "delete" ? "DELETE" : "POST" },
+      );
       await reload();
-    } catch (cause) {
-      setError(String(cause));
-    }
+    });
   }
 
   async function edit(job: Reminder) {
-    const nextSchedule = window.prompt('Schedule', job.schedule);
+    const nextSchedule = window.prompt("Schedule", job.schedule);
     if (!nextSchedule?.trim()) return;
-    try {
+    await withPending(`edit:${job.id}`, async () => {
       await request(api(`/reminders/${job.id}`), {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: job.name, schedule: nextSchedule.trim(), prompt: job.name, deliver: job.deliver }),
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: job.name,
+          schedule: nextSchedule.trim(),
+          prompt: job.name,
+          deliver: job.deliver,
+        }),
       });
       await reload();
-    } catch (cause) {
-      setError(String(cause));
-    }
+    });
   }
 
   return (
     <main className="reminders-shell">
-      <header>
+      <header className="app-top">
         <p className="eyebrow">Hermes cron</p>
         <h1>Reminders</h1>
-        <p>Upcoming and paused deliveries, under your control.</p>
+        <p className="subtitle">
+          Upcoming and paused deliveries, under your control.
+        </p>
       </header>
-      {error && <p role="alert">{error}</p>}
-      <form onSubmit={createReminder} className="capture">
-        <label>
-          Reminder name
-          <input aria-label="Reminder name" value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label>
-          Schedule
-          <input
-            aria-label="Schedule"
-            placeholder="2026-08-01T09:00:00 or every monday 9am"
-            value={schedule}
-            onChange={(event) => setSchedule(event.target.value)}
-          />
-        </label>
-        <label>
-          Delivery target
-          <input aria-label="Delivery target" value={deliver} onChange={(event) => setDeliver(event.target.value)} />
-        </label>
-        <button type="submit">Create reminder</button>
-      </form>
-      <section aria-label="Scheduled reminders">
-        <h2>Scheduled reminders</h2>
-        {reminders.length === 0 ? (
-          <p>No reminders yet.</p>
-        ) : (
-          <ul>
-            {reminders.map((job) => (
-              <li key={job.id}>
-                <div>
-                  <strong>{job.name}</strong>
-                  <span>{job.schedule}</span>
-                  <code>{job.deliver}</code>
-                </div>
-                <div>
-                  <button onClick={() => void edit(job)}>Edit</button>
-                  {job.enabled ? (
-                    <button onClick={() => void control(job, 'pause')}>Pause</button>
-                  ) : (
-                    <button onClick={() => void control(job, 'resume')}>Resume</button>
-                  )}
-                  <button onClick={() => void control(job, 'delete')}>Delete</button>
-                </div>
-              </li>
+      {error && (
+        <p role="alert" className="error" onClick={() => setError("")}>
+          {error}
+        </p>
+      )}
+
+      <div className="layout">
+        <div className="sidebar">
+          <form onSubmit={createReminder} className="quickadd">
+            <div className="quickadd-row">
+              <PlusIcon />
+              <label htmlFor="reminder-name" className="sr-only">
+                Reminder name
+              </label>
+              <input
+                id="reminder-name"
+                aria-label="Reminder name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="New reminder…"
+              />
+            </div>
+            <div className="quickadd-details">
+              <label>
+                Schedule
+                <input
+                  aria-label="Schedule"
+                  placeholder="2026-08-01T09:00:00 or every monday 9am"
+                  value={schedule}
+                  onChange={(event) => setSchedule(event.target.value)}
+                />
+              </label>
+              <label>
+                Delivery target
+                <input
+                  aria-label="Delivery target"
+                  value={deliver}
+                  onChange={(event) => setDeliver(event.target.value)}
+                />
+              </label>
+            </div>
+            <button type="submit" disabled={pending.has("create")}>
+              {pending.has("create") ? "Creating…" : "Create reminder"}
+            </button>
+          </form>
+
+          <nav aria-label="Filter reminders" className="shelf">
+            {FILTERS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={
+                  "tile status-" +
+                  option.id +
+                  (filter === option.id ? " active" : "")
+                }
+                onClick={() => setFilter(option.id)}
+              >
+                <span className="tile-dot" aria-hidden="true" />
+                <span className="tile-name">{option.label}</span>
+                <span className="tile-foot">
+                  {option.id === "all"
+                    ? reminders.length
+                    : option.id === "active"
+                      ? activeCount
+                      : pausedCount}
+                </span>
+              </button>
             ))}
-          </ul>
-        )}
-      </section>
+          </nav>
+        </div>
+
+        <div className="main">
+          <section aria-label="Scheduled reminders" className="sheet">
+            {visibleReminders.length === 0 ? (
+              <div className="empty-state">
+                <p>
+                  {reminders.length === 0
+                    ? "No reminders yet."
+                    : "No reminders match this filter."}
+                </p>
+              </div>
+            ) : (
+              <ul className="items">
+                {visibleReminders.map((job) => (
+                  <li
+                    key={job.id}
+                    className={"item" + (job.enabled ? "" : " paused")}
+                  >
+                    <span
+                      className={"status-dot" + (job.enabled ? " active" : "")}
+                      aria-hidden="true"
+                    />
+                    <div className="item-body">
+                      <div className="item-main">
+                        <span className="item-text">{job.name}</span>
+                        <span className="status-label">
+                          {job.enabled ? "Active" : "Paused"}
+                        </span>
+                      </div>
+                      <div className="meta">
+                        <span className="schedule">{job.schedule}</span>
+                        <span className="deliver-badge">{job.deliver}</span>
+                      </div>
+                    </div>
+                    <div className="item-actions">
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        aria-label="Edit"
+                        onClick={() => void edit(job)}
+                        disabled={pending.has(`edit:${job.id}`)}
+                      >
+                        <EditIcon />
+                      </button>
+                      {job.enabled ? (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label="Pause"
+                          onClick={() => void control(job, "pause")}
+                          disabled={pending.has(`pause:${job.id}`)}
+                        >
+                          <PauseIcon />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          aria-label="Resume"
+                          onClick={() => void control(job, "resume")}
+                          disabled={pending.has(`resume:${job.id}`)}
+                        >
+                          <ResumeIcon />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="icon-btn danger"
+                        aria-label="Delete"
+                        onClick={() => void control(job, "delete")}
+                        disabled={pending.has(`delete:${job.id}`)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>
     </main>
   );
 }
