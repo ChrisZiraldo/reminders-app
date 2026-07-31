@@ -9,6 +9,7 @@ type Reminder = {
   deliver: string;
 };
 type Filter = "all" | "active" | "paused";
+type ScheduleMode = "once" | "recurring";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
@@ -79,7 +80,9 @@ function ResumeIcon() {
 export function App() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [name, setName] = useState("");
-  const [schedule, setSchedule] = useState("");
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("once");
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleText, setScheduleText] = useState("");
   const [deliver, setDeliver] = useState("origin");
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -120,6 +123,13 @@ export function App() {
     }
   }
 
+  const schedule =
+    scheduleMode === "once"
+      ? scheduleDate
+        ? `${scheduleDate}:00`
+        : ""
+      : scheduleText.trim();
+
   async function createReminder(event: FormEvent) {
     event.preventDefault();
     if (!name.trim() || !schedule.trim() || !deliver.trim()) return;
@@ -135,7 +145,8 @@ export function App() {
         }),
       });
       setName("");
-      setSchedule("");
+      setScheduleDate("");
+      setScheduleText("");
       await reload();
     });
   }
@@ -200,15 +211,44 @@ export function App() {
               />
             </div>
             <div className="quickadd-details">
-              <label>
-                Schedule
-                <input
-                  aria-label="Schedule"
-                  placeholder="2026-08-01T09:00:00 or every monday 9am"
-                  value={schedule}
-                  onChange={(event) => setSchedule(event.target.value)}
-                />
-              </label>
+              <div className="schedule-field">
+                <span className="field-label">Schedule</span>
+                <div
+                  className="segmented segmented-mini"
+                  role="group"
+                  aria-label="Schedule type"
+                >
+                  <button
+                    type="button"
+                    className={scheduleMode === "once" ? "active" : ""}
+                    onClick={() => setScheduleMode("once")}
+                  >
+                    One-time
+                  </button>
+                  <button
+                    type="button"
+                    className={scheduleMode === "recurring" ? "active" : ""}
+                    onClick={() => setScheduleMode("recurring")}
+                  >
+                    Recurring
+                  </button>
+                </div>
+                {scheduleMode === "once" ? (
+                  <input
+                    aria-label="Schedule"
+                    type="datetime-local"
+                    value={scheduleDate}
+                    onChange={(event) => setScheduleDate(event.target.value)}
+                  />
+                ) : (
+                  <input
+                    aria-label="Schedule"
+                    placeholder="every monday 9am"
+                    value={scheduleText}
+                    onChange={(event) => setScheduleText(event.target.value)}
+                  />
+                )}
+              </div>
               <label>
                 Delivery target
                 <input
