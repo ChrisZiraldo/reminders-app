@@ -180,11 +180,14 @@ p {
 .quickadd-details label {
   display: grid;
   gap: 0.3rem;
+  min-width: 0;
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--muted);
 }
 .quickadd-details input {
+  width: 100%;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 0.55rem;
   padding: 0.5rem 0.6rem;
