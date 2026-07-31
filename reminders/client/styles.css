@@ -200,8 +200,17 @@ p {
   color: var(--ink);
   font-size: 0.86rem;
 }
-.quickadd-details input[type="datetime-local"] {
+.quickadd-details input[type="date"],
+.quickadd-details input[type="time"] {
   color-scheme: light dark;
+}
+.schedule-once-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.4rem;
+}
+.schedule-once-fields input {
+  min-width: 0;
 }
 
 .segmented {
