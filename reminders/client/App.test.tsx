@@ -28,6 +28,13 @@ describe("Reminders App", () => {
               schedule: "once at 2026-08-01 09:00",
               enabled: true,
               deliver: "discord:123",
+              origin: {
+                platform: "discord",
+                requester: { id: "user-7", name: "Chris" },
+                conversation: { id: "channel-42", name: "reminders" },
+                message: { id: "message-9" },
+                thread: { id: "thread-3", name: "Weekend chores" },
+              },
             },
           ]),
           {
@@ -51,6 +58,11 @@ describe("Reminders App", () => {
     render(<App />);
     expect(await screen.findByText("Take bins out")).not.toBeNull();
     expect(screen.getByText("discord:123")).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Discord · Chris · #reminders · Weekend chores · message message-9",
+      ),
+    ).not.toBeNull();
     fireEvent.change(screen.getByLabelText("Reminder name"), {
       target: { value: "Water plants" },
     });
