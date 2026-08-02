@@ -25,6 +25,7 @@ const origin = z.object({
   conversation: z.object({
     id: z.string().trim().min(1).max(200),
     name: z.string().trim().min(1).max(200).optional(),
+    type: z.enum(["channel", "dm"]).optional(),
   }),
   message: z.object({ id: z.string().trim().min(1).max(200) }).optional(),
   thread: z

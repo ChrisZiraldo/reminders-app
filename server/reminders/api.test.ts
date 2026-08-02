@@ -47,7 +47,7 @@ describe("Reminders HTTP API", () => {
     const origin = {
       platform: "discord",
       requester: { id: "user-7", name: "Chris" },
-      conversation: { id: "channel-42", name: "reminders" },
+      conversation: { id: "channel-42", name: "reminders", type: "channel" },
       message: { id: "message-9" },
       thread: { id: "thread-3", name: "Weekend chores" },
     };
