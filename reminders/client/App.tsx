@@ -46,6 +46,12 @@ function originLabel(origin: NonNullable<Reminder["origin"]>) {
     .join(" · ");
 }
 
+function destinationLabel(job: Reminder) {
+  if (job.origin)
+    return `#${job.origin.conversation.name ?? job.origin.conversation.id}`;
+  return job.deliver;
+}
+
 function PlusIcon() {
   return (
     <span className="qa-icon" aria-hidden="true">
@@ -338,10 +344,12 @@ export function App() {
                       </div>
                       <div className="meta">
                         <span className="schedule">{job.schedule}</span>
-                        <span className="deliver-badge">{job.deliver}</span>
+                        <span className="deliver-badge">
+                          Destination: {destinationLabel(job)}
+                        </span>
                         {job.origin && (
                           <span className="origin-badge">
-                            {originLabel(job.origin)}
+                            Source: {originLabel(job.origin)}
                           </span>
                         )}
                       </div>
