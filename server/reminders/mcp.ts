@@ -25,6 +25,13 @@ const input = {
   deliver: z.string().min(1).optional(),
   origin: origin.optional(),
 };
+const editInput = z
+  .object({
+    jobId,
+    schedule: z.string().min(1),
+    deliver: z.string().min(1),
+  })
+  .strict();
 const json = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
 });
@@ -74,8 +81,8 @@ export function createRemindersMcpServer({
     "edit_reminder",
     {
       description:
-        "Edit a Hermes reminder schedule, message, or delivery target.",
-      inputSchema: { jobId, ...input },
+        "Edit a Hermes reminder schedule or delivery destination.",
+      inputSchema: editInput,
     },
     async ({ jobId: id, ...value }) => {
       await bridge.update(id, value);

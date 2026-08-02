@@ -142,15 +142,22 @@ describe("Reminders App", () => {
     );
   });
 
-  it("edits an existing reminder schedule", async () => {
+  it("edits an origin-backed reminder's schedule and concrete Discord destination", async () => {
     vi.stubEnv("BASE_URL", "/reminders/");
-    vi.spyOn(window, "prompt").mockReturnValue("every saturday 9am");
+    vi.spyOn(window, "prompt")
+      .mockReturnValueOnce("every saturday 9am")
+      .mockReturnValueOnce("discord:other-channel");
     const job = {
       id: "job-1",
       name: "Water plants",
       schedule: "every sunday 9am",
       enabled: true,
       deliver: "discord:123",
+      origin: {
+        platform: "discord",
+        requester: { id: "user-7", name: "Chris" },
+        conversation: { id: "channel-42", name: "reminders" },
+      },
     };
     const fetch = vi
       .fn()
@@ -169,10 +176,21 @@ describe("Reminders App", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(window.prompt).toHaveBeenNthCalledWith(
+      2,
+      "Destination",
+      "discord:channel-42",
+    );
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         "/reminders/api/reminders/job-1",
-        expect.objectContaining({ method: "PATCH" }),
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            schedule: "every saturday 9am",
+            deliver: "discord:other-channel",
+          }),
+        }),
       ),
     );
   });

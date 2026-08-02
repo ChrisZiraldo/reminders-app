@@ -97,9 +97,7 @@ describe("Reminders HTTP API", () => {
           method: "PATCH",
           url: "/api/reminders/job-1",
           payload: {
-            name: "Bins tomorrow",
             schedule: "0 9 * * 6",
-            prompt: "Take bins out",
             deliver: "discord:123",
           },
         })
@@ -112,12 +110,52 @@ describe("Reminders HTTP API", () => {
     expect(bridge.pause).toHaveBeenCalledWith("job-1");
     expect(bridge.resume).toHaveBeenCalledWith("job-1");
     expect(bridge.update).toHaveBeenCalledWith("job-1", {
-      name: "Bins tomorrow",
       schedule: "0 9 * * 6",
-      prompt: "Take bins out",
       deliver: "discord:123",
     });
     expect(bridge.remove).toHaveBeenCalledWith("job-1");
+    await app.close();
+  });
+
+  it("rejects origin provenance on reminder edits", async () => {
+    const bridge = { update: vi.fn().mockResolvedValue(undefined) };
+    const app = buildRemindersApi(bridge);
+
+    const edited = await app.inject({
+      method: "PATCH",
+      url: "/api/reminders/job-1",
+      payload: {
+        schedule: "0 9 * * 6",
+        deliver: "discord:123",
+        origin: {
+          platform: "discord",
+          requester: { id: "user-7" },
+          conversation: { id: "channel-42" },
+        },
+      },
+    });
+
+    expect(edited.statusCode).toBe(400);
+    expect(bridge.update).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it("rejects non-editable name and prompt fields", async () => {
+    const bridge = { update: vi.fn().mockResolvedValue(undefined) };
+    const app = buildRemindersApi(bridge);
+
+    const edited = await app.inject({
+      method: "PATCH",
+      url: "/api/reminders/job-1",
+      payload: {
+        name: "Bins tomorrow",
+        schedule: "0 9 * * 6",
+        deliver: "discord:123",
+      },
+    });
+
+    expect(edited.statusCode).toBe(400);
+    expect(bridge.update).not.toHaveBeenCalled();
     await app.close();
   });
 });

@@ -1,13 +1,17 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ReminderJob, ReminderJobInput } from "./cron-bridge.js";
+import type {
+  ReminderEditInput,
+  ReminderJob,
+  ReminderJobInput,
+} from "./cron-bridge.js";
 
 export type RemindersBridge = {
   list?: () => Promise<ReminderJob[]>;
   create?: (input: ReminderJobInput) => Promise<void>;
   pause?: (jobId: string) => Promise<void>;
   resume?: (jobId: string) => Promise<void>;
-  update?: (jobId: string, input: ReminderJobInput) => Promise<void>;
+  update?: (jobId: string, input: ReminderEditInput) => Promise<void>;
   remove?: (jobId: string) => Promise<void>;
 };
 
@@ -41,6 +45,12 @@ const input = z
   .refine((value) => value.deliver || value.origin, {
     message: "a delivery target or origin conversation is required",
   });
+const editInput = z
+  .object({
+    schedule: z.string().trim().min(1).max(200),
+    deliver: z.string().trim().min(1).max(500),
+  })
+  .strict();
 
 function requireMethod<T>(method: T | undefined, name: string): T {
   if (!method) throw new Error(`cron bridge does not support ${name}`);
@@ -79,7 +89,7 @@ export function registerRemindersApi(
     await requireMethod(bridge.update, "editing").call(
       bridge,
       jobId.parse((request.params as { jobId: string }).jobId),
-      input.parse(request.body),
+      editInput.parse(request.body),
     );
     return reply.code(204).send();
   });
