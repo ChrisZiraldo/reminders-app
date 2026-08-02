@@ -53,8 +53,7 @@ function destinationLabel(job: Reminder) {
 }
 
 function editableDestination(job: Reminder) {
-  if (job.origin)
-    return `${job.origin.platform}:${job.origin.conversation.id}`;
+  if (job.origin) return `${job.origin.platform}:${job.origin.conversation.id}`;
   return job.deliver;
 }
 
@@ -118,6 +117,9 @@ export function App() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<Reminder | null>(null);
+  const [editSchedule, setEditSchedule] = useState("");
+  const [editDeliver, setEditDeliver] = useState("");
 
   const reload = () =>
     request(api("/reminders"))
@@ -192,21 +194,26 @@ export function App() {
     });
   }
 
-  async function edit(job: Reminder) {
-    const nextSchedule = window.prompt("Schedule", job.schedule);
-    if (!nextSchedule?.trim()) return;
-    const nextDeliver = window.prompt("Destination", editableDestination(job));
-    if (!nextDeliver?.trim()) return;
+  function startEditing(job: Reminder) {
+    setEditing(job);
+    setEditSchedule(job.schedule);
+    setEditDeliver(editableDestination(job));
+  }
+
+  async function saveEdit(event: FormEvent, job: Reminder) {
+    event.preventDefault();
+    if (!editSchedule.trim() || !editDeliver.trim()) return;
     await withPending(`edit:${job.id}`, async () => {
       await request(api(`/reminders/${job.id}`), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          schedule: nextSchedule.trim(),
-          deliver: nextDeliver.trim(),
+          schedule: editSchedule.trim(),
+          deliver: editDeliver.trim(),
         }),
       });
       await reload();
+      setEditing(null);
     });
   }
 
@@ -359,13 +366,68 @@ export function App() {
                           </span>
                         )}
                       </div>
+                      {editing?.id === job.id && (
+                        <form
+                          aria-label={`Edit ${job.name}`}
+                          className="inline-editor"
+                          onSubmit={(event) => void saveEdit(event, job)}
+                        >
+                          <label>
+                            Schedule
+                            <input
+                              aria-label="Schedule"
+                              value={editSchedule}
+                              onChange={(event) =>
+                                setEditSchedule(event.target.value)
+                              }
+                            />
+                          </label>
+                          <label>
+                            Destination
+                            <input
+                              aria-label="Destination"
+                              value={editDeliver}
+                              onChange={(event) =>
+                                setEditDeliver(event.target.value)
+                              }
+                            />
+                          </label>
+                          <label>
+                            Source
+                            <input
+                              aria-label="Source"
+                              value={
+                                job.origin ? originLabel(job.origin) : "None"
+                              }
+                              disabled
+                            />
+                          </label>
+                          <div className="inline-editor-actions">
+                            <button
+                              type="submit"
+                              disabled={pending.has(`edit:${job.id}`)}
+                            >
+                              {pending.has(`edit:${job.id}`)
+                                ? "Saving…"
+                                : "Save changes"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditing(null)}
+                              disabled={pending.has(`edit:${job.id}`)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
                     <div className="item-actions">
                       <button
                         type="button"
                         className="icon-btn"
                         aria-label="Edit"
-                        onClick={() => void edit(job)}
+                        onClick={() => startEditing(job)}
                         disabled={pending.has(`edit:${job.id}`)}
                       >
                         <EditIcon />

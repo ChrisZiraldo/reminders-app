@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
@@ -142,11 +143,8 @@ describe("Reminders App", () => {
     );
   });
 
-  it("edits an origin-backed reminder's schedule and concrete Discord destination", async () => {
+  it("edits an origin-backed reminder's schedule and destination from its inline editor", async () => {
     vi.stubEnv("BASE_URL", "/reminders/");
-    vi.spyOn(window, "prompt")
-      .mockReturnValueOnce("every saturday 9am")
-      .mockReturnValueOnce("discord:other-channel");
     const job = {
       id: "job-1",
       name: "Water plants",
@@ -176,10 +174,18 @@ describe("Reminders App", () => {
 
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    expect(window.prompt).toHaveBeenNthCalledWith(
-      2,
-      "Destination",
-      "discord:channel-42",
+    const editor = screen.getByRole("form", { name: "Edit Water plants" });
+    const source = within(editor).getByLabelText("Source") as HTMLInputElement;
+    expect(source.value).toBe("Discord · Chris · #reminders");
+    expect(source.disabled).toBe(true);
+    fireEvent.change(within(editor).getByLabelText("Schedule"), {
+      target: { value: "every saturday 9am" },
+    });
+    fireEvent.change(within(editor).getByLabelText("Destination"), {
+      target: { value: "discord:other-channel" },
+    });
+    fireEvent.click(
+      within(editor).getByRole("button", { name: "Save changes" }),
     );
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(

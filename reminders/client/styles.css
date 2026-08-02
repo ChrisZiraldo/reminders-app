@@ -401,6 +401,57 @@ p {
   background: var(--surface-2);
   color: var(--muted);
 }
+.inline-editor {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  background: var(--surface-2);
+}
+.inline-editor label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.inline-editor input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+.inline-editor input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.inline-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.inline-editor-actions button {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 650;
+  cursor: pointer;
+}
+.inline-editor-actions button[type="button"] {
+  background: transparent;
+  color: var(--muted);
+}
+.inline-editor-actions button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
 
 .item-actions {
   display: flex;
