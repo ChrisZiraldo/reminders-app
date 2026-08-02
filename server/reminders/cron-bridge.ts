@@ -104,7 +104,7 @@ function deliveryFor(input: ReminderJobInput): string {
 }
 
 function createdJobId(stdout: string): string | undefined {
-  return stdout.match(/Created job\s+([\w-]+)/)?.[1];
+  return stdout.match(/Created job:\s*([\w-]+)/)?.[1];
 }
 
 export class HermesCronBridge {
