@@ -7,6 +7,13 @@ type Reminder = {
   schedule: string;
   enabled: boolean;
   deliver: string;
+  origin?: {
+    platform: string;
+    requester: { id: string; name?: string };
+    conversation: { id: string; name?: string };
+    message?: { id: string };
+    thread?: { id: string; name?: string };
+  };
 };
 type Filter = "all" | "active" | "paused";
 type ScheduleMode = "once" | "recurring";
@@ -25,6 +32,18 @@ async function request(url: string, options?: RequestInit) {
   const response = await fetch(url, options);
   if (!response.ok) throw new Error("Reminder request failed");
   return response.status === 204 ? undefined : response.json();
+}
+
+function originLabel(origin: NonNullable<Reminder["origin"]>) {
+  return [
+    origin.platform.slice(0, 1).toUpperCase() + origin.platform.slice(1),
+    origin.requester.name ?? origin.requester.id,
+    `#${origin.conversation.name ?? origin.conversation.id}`,
+    origin.thread?.name ?? origin.thread?.id,
+    origin.message ? `message ${origin.message.id}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function PlusIcon() {
@@ -320,6 +339,11 @@ export function App() {
                       <div className="meta">
                         <span className="schedule">{job.schedule}</span>
                         <span className="deliver-badge">{job.deliver}</span>
+                        {job.origin && (
+                          <span className="origin-badge">
+                            {originLabel(job.origin)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="item-actions">
