@@ -4,7 +4,7 @@ import type { RemindersBridge } from "./api.js";
 
 const jobId = z.string().regex(/^[A-Za-z0-9_-]+$/);
 const origin = z.object({
-  platform: z.string().min(1),
+  platform: z.literal("discord"),
   requester: z.object({
     id: z.string().min(1),
     name: z.string().min(1).optional(),
@@ -12,6 +12,7 @@ const origin = z.object({
   conversation: z.object({
     id: z.string().min(1),
     name: z.string().min(1).optional(),
+    type: z.enum(["channel", "dm"]).optional(),
   }),
   message: z.object({ id: z.string().min(1) }).optional(),
   thread: z
@@ -23,7 +24,7 @@ const input = {
   schedule: z.string().min(1),
   prompt: z.string().min(1),
   deliver: z.string().min(1).optional(),
-  origin: origin.optional(),
+  origin,
 };
 const editInput = z
   .object({
@@ -35,6 +36,10 @@ const editInput = z
 const json = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value) }],
 });
+
+function concreteDiscordDelivery(callerOrigin: z.infer<typeof origin>): string {
+  return `discord:${callerOrigin.conversation.id}`;
+}
 
 export function createRemindersMcpServer({
   bridge,
@@ -53,11 +58,18 @@ export function createRemindersMcpServer({
   server.registerTool(
     "create_reminder",
     {
-      description: "Create a one-time or recurring Hermes reminder.",
+      description:
+        "Create a one-time or recurring Hermes reminder from the invoking Discord caller context. origin is required; pass the real Discord requester, conversation, optional message, and optional thread metadata. If no Discord caller context is available, do not create the reminder.",
       inputSchema: input,
     },
     async (value) => {
-      await bridge.create(value);
+      await bridge.create({
+        ...value,
+        deliver:
+          value.deliver && value.deliver !== "origin"
+            ? value.deliver
+            : concreteDiscordDelivery(value.origin),
+      });
       return json({ created: true });
     },
   );

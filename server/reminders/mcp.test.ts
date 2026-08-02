@@ -40,7 +40,7 @@ describe("Reminders MCP server", () => {
     await Promise.all([client.close(), server.close()]);
   });
 
-  it("creates a reminder from Discord origin context without an explicit delivery target", async () => {
+  it("creates a reminder with a concrete delivery target from Discord caller context", async () => {
     const bridge = {
       list: vi.fn(),
       create: vi.fn(),
@@ -60,7 +60,7 @@ describe("Reminders MCP server", () => {
     const origin = {
       platform: "discord",
       requester: { id: "user-7", name: "Chris" },
-      conversation: { id: "channel-42", name: "reminders" },
+      conversation: { id: "channel-42", name: "reminders", type: "channel" },
       message: { id: "message-9" },
       thread: { id: "thread-3", name: "Weekend chores" },
     };
@@ -79,8 +79,42 @@ describe("Reminders MCP server", () => {
       name: "Take bins out",
       schedule: "2026-08-01T09:00:00",
       prompt: "Take bins out",
+      deliver: "discord:channel-42",
       origin,
     });
+    await Promise.all([client.close(), server.close()]);
+  });
+
+  it("rejects origin delivery without explicit Discord caller context", async () => {
+    const bridge = {
+      list: vi.fn(),
+      create: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    };
+    const server = createRemindersMcpServer({ bridge });
+    const client = new Client({ name: "test", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const response = await client.callTool({
+      name: "create_reminder",
+      arguments: {
+        name: "Sarah test reminder",
+        schedule: "2026-08-02T13:00:00",
+        prompt: "Sarah test reminder",
+        deliver: "origin",
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(bridge.create).not.toHaveBeenCalled();
     await Promise.all([client.close(), server.close()]);
   });
 
