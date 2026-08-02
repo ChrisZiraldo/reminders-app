@@ -97,7 +97,7 @@ describe("HermesCronBridge", () => {
   it("persists Discord origin context and defaults delivery to its conversation", async () => {
     const execute = vi
       .fn()
-      .mockResolvedValue({ stdout: "Created job reminder-1" });
+      .mockResolvedValue({ stdout: "Created job: reminder-1" });
     const origins = {};
     const bridge = new HermesCronBridge({
       execute,
