@@ -9,7 +9,7 @@ const execFile = promisify(nodeExecFile);
 export type ReminderOrigin = {
   platform: string;
   requester: { id: string; name?: string };
-  conversation: { id: string; name?: string };
+  conversation: { id: string; name?: string; type?: "channel" | "dm" };
   message?: { id: string };
   thread?: { id: string; name?: string };
 };
@@ -44,11 +44,16 @@ type Execute = (
 type CronBridgeOptions = {
   execute?: Execute;
   originStore?: ReminderOriginStore;
+  cronStore?: CronStore;
 };
 
 type ReminderOriginStore = {
   load(): Promise<Record<string, ReminderOrigin>>;
   save(origins: Record<string, ReminderOrigin>): Promise<void>;
+};
+
+type CronStore = {
+  load(): Promise<unknown>;
 };
 
 const originStorePath = join(
@@ -57,6 +62,7 @@ const originStorePath = join(
   "cron",
   "reminders-app-origins.json",
 );
+const cronStorePath = join(homedir(), ".hermes", "cron", "jobs.json");
 
 const fileOriginStore: ReminderOriginStore = {
   async load() {
@@ -77,6 +83,74 @@ const fileOriginStore: ReminderOriginStore = {
     });
   },
 };
+
+const fileCronStore: CronStore = {
+  async load() {
+    try {
+      return JSON.parse(await readFile(cronStorePath, "utf8"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+        return { jobs: [] };
+      throw error;
+    }
+  },
+};
+
+function stringField(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function normalizeConversationType(
+  value: Record<string, unknown>,
+): "channel" | "dm" | undefined {
+  const type =
+    stringField(value.chat_type) ?? stringField(value.conversation_type);
+  return type === "channel" || type === "dm" ? type : undefined;
+}
+
+function normalizeCronOrigin(value: unknown): ReminderOrigin | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    return undefined;
+  const raw = value as Record<string, unknown>;
+  const platform = stringField(raw.platform);
+  const conversationId = stringField(raw.chat_id);
+  const requesterId = stringField(raw.user_id);
+  if (!platform || !conversationId || !requesterId) return undefined;
+
+  const conversationName = stringField(raw.chat_name);
+  const threadId = stringField(raw.thread_id);
+  const threadName = stringField(raw.thread_name);
+  const conversationType = normalizeConversationType(raw);
+  return {
+    platform,
+    requester: { id: requesterId },
+    conversation: {
+      id: conversationId,
+      ...(conversationName ? { name: conversationName } : {}),
+      ...(conversationType ? { type: conversationType } : {}),
+    },
+    ...(threadId
+      ? {
+          thread: { id: threadId, ...(threadName ? { name: threadName } : {}) },
+        }
+      : {}),
+  };
+}
+
+function cronOrigins(value: unknown): Record<string, ReminderOrigin> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const jobs = (value as { jobs?: unknown }).jobs;
+  if (!Array.isArray(jobs)) return {};
+  return Object.fromEntries(
+    jobs.flatMap((job) => {
+      if (!job || typeof job !== "object" || Array.isArray(job)) return [];
+      const record = job as Record<string, unknown>;
+      const id = stringField(record.id);
+      const origin = normalizeCronOrigin(record.origin);
+      return id && origin ? [[id, origin]] : [];
+    }),
+  );
+}
 
 function parseJobs(stdout: string): ReminderJob[] {
   const jobs: ReminderJob[] = [];
@@ -115,23 +189,30 @@ function createdJobId(stdout: string): string | undefined {
 export class HermesCronBridge {
   private readonly execute: Execute;
   private readonly originStore: ReminderOriginStore;
+  private readonly cronStore: CronStore;
 
   constructor({
     execute = (command, arguments_) => execFile(command, arguments_),
     originStore = fileOriginStore,
+    cronStore = fileCronStore,
   }: CronBridgeOptions = {}) {
     this.execute = execute;
     this.originStore = originStore;
+    this.cronStore = cronStore;
   }
 
   async list(): Promise<ReminderJob[]> {
-    const [{ stdout }, origins] = await Promise.all([
+    const [{ stdout }, origins, storedJobs] = await Promise.all([
       this.execute("hermes", ["cron", "list", "--all"]),
       this.originStore.load(),
+      this.cronStore.load(),
     ]);
+    const hydratedOrigins = cronOrigins(storedJobs);
     return parseJobs(stdout).map((job) => ({
       ...job,
-      ...(origins[job.id] ? { origin: origins[job.id] } : {}),
+      ...((origins[job.id] ?? hydratedOrigins[job.id])
+        ? { origin: origins[job.id] ?? hydratedOrigins[job.id] }
+        : {}),
     }));
   }
 

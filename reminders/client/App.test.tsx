@@ -16,6 +16,44 @@ afterEach(() => {
 });
 
 describe("Reminders App", () => {
+  it("labels a typed Discord DM without fabricating a channel marker", async () => {
+    vi.stubEnv("BASE_URL", "/reminders/");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify([
+            {
+              id: "job-dm",
+              name: "Call Mum",
+              schedule: "0 8 * * *",
+              enabled: true,
+              deliver: "origin",
+              origin: {
+                platform: "discord",
+                requester: { id: "user-7", name: "Chris" },
+                conversation: {
+                  id: "dm-42",
+                  name: "Chris",
+                  type: "dm",
+                },
+              },
+            },
+          ]),
+          { headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("Call Mum")).not.toBeNull();
+    expect(screen.getByText("Destination: DM Chris")).not.toBeNull();
+    expect(
+      screen.getByText("Source: Discord · Chris · DM Chris"),
+    ).not.toBeNull();
+  });
+
   it("labels an origin-backed reminder's Discord destination separately from its source", async () => {
     vi.stubEnv("BASE_URL", "/reminders/");
     const fetch = vi
@@ -58,10 +96,10 @@ describe("Reminders App", () => {
 
     render(<App />);
     expect(await screen.findByText("Take bins out")).not.toBeNull();
-    expect(screen.getByText("Destination: #reminders")).not.toBeNull();
+    expect(screen.getByText("Destination: reminders")).not.toBeNull();
     expect(
       screen.getByText(
-        "Source: Discord · Chris · #reminders · Weekend chores · message message-9",
+        "Source: Discord · Chris · reminders · Weekend chores · message message-9",
       ),
     ).not.toBeNull();
     fireEvent.change(screen.getByLabelText("Reminder name"), {
@@ -176,7 +214,7 @@ describe("Reminders App", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const editor = screen.getByRole("form", { name: "Edit Water plants" });
     const source = within(editor).getByLabelText("Source") as HTMLInputElement;
-    expect(source.value).toBe("Discord · Chris · #reminders");
+    expect(source.value).toBe("Discord · Chris · reminders");
     expect(source.disabled).toBe(true);
     fireEvent.change(within(editor).getByLabelText("Schedule"), {
       target: { value: "every saturday 9am" },

@@ -10,7 +10,7 @@ type Reminder = {
   origin?: {
     platform: string;
     requester: { id: string; name?: string };
-    conversation: { id: string; name?: string };
+    conversation: { id: string; name?: string; type?: "channel" | "dm" };
     message?: { id: string };
     thread?: { id: string; name?: string };
   };
@@ -34,11 +34,20 @@ async function request(url: string, options?: RequestInit) {
   return response.status === 204 ? undefined : response.json();
 }
 
+function conversationLabel(
+  conversation: NonNullable<Reminder["origin"]>["conversation"],
+) {
+  const name = conversation.name ?? conversation.id;
+  if (conversation.type === "channel") return `#${name}`;
+  if (conversation.type === "dm") return `DM ${name}`;
+  return name;
+}
+
 function originLabel(origin: NonNullable<Reminder["origin"]>) {
   return [
     origin.platform.slice(0, 1).toUpperCase() + origin.platform.slice(1),
     origin.requester.name ?? origin.requester.id,
-    `#${origin.conversation.name ?? origin.conversation.id}`,
+    conversationLabel(origin.conversation),
     origin.thread?.name ?? origin.thread?.id,
     origin.message ? `message ${origin.message.id}` : undefined,
   ]
@@ -47,8 +56,7 @@ function originLabel(origin: NonNullable<Reminder["origin"]>) {
 }
 
 function destinationLabel(job: Reminder) {
-  if (job.origin)
-    return `#${job.origin.conversation.name ?? job.origin.conversation.id}`;
+  if (job.origin) return conversationLabel(job.origin.conversation);
   return job.deliver;
 }
 

@@ -36,6 +36,87 @@ describe("HermesCronBridge", () => {
     expect(execute).toHaveBeenCalledWith("hermes", ["cron", "list", "--all"]);
   });
 
+  it("hydrates a legacy Discord cron origin while preserving sidecar precedence", async () => {
+    const execute = vi.fn().mockResolvedValue({
+      stdout: [
+        "  legacy-job [active]",
+        "    Name:      Legacy reminder",
+        "    Schedule:  0 8 * * *",
+        "    Deliver:   origin",
+        "  sidecar-job [paused]",
+        "    Name:      Sidecar reminder",
+        "    Schedule:  every 2w",
+        "    Deliver:   discord:sidecar-channel",
+      ].join("\n"),
+    });
+    const bridge = new HermesCronBridge({
+      execute,
+      originStore: {
+        load: vi.fn().mockResolvedValue({
+          "sidecar-job": {
+            platform: "discord",
+            requester: { id: "sidecar-user" },
+            conversation: { id: "sidecar-channel", name: "sidecar" },
+          },
+        }),
+        save: vi.fn(),
+      },
+      cronStore: {
+        load: vi.fn().mockResolvedValue({
+          jobs: [
+            {
+              id: "legacy-job",
+              origin: {
+                platform: "discord",
+                chat_id: "channel-42",
+                chat_name: "reminders",
+                thread_id: "thread-3",
+                user_id: "user-7",
+              },
+            },
+            {
+              id: "sidecar-job",
+              origin: {
+                platform: "discord",
+                chat_id: "ignored-channel",
+                chat_name: "ignored",
+                user_id: "ignored-user",
+              },
+            },
+          ],
+        }),
+      },
+    });
+
+    await expect(bridge.list()).resolves.toEqual([
+      {
+        id: "legacy-job",
+        name: "Legacy reminder",
+        schedule: "0 8 * * *",
+        enabled: true,
+        deliver: "origin",
+        origin: {
+          platform: "discord",
+          requester: { id: "user-7" },
+          conversation: { id: "channel-42", name: "reminders" },
+          thread: { id: "thread-3" },
+        },
+      },
+      {
+        id: "sidecar-job",
+        name: "Sidecar reminder",
+        schedule: "every 2w",
+        enabled: false,
+        deliver: "discord:sidecar-channel",
+        origin: {
+          platform: "discord",
+          requester: { id: "sidecar-user" },
+          conversation: { id: "sidecar-channel", name: "sidecar" },
+        },
+      },
+    ]);
+  });
+
   it("creates and controls a job using argument arrays", async () => {
     const execute = vi
       .fn()
