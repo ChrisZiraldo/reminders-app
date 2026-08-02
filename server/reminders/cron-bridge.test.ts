@@ -51,9 +51,7 @@ describe("HermesCronBridge", () => {
     await bridge.pause("reminder-1");
     await bridge.resume("reminder-1");
     await bridge.update("reminder-1", {
-      name: "Bins tomorrow",
       schedule: "0 9 * * 6",
-      prompt: "Take bins out",
       deliver: "discord:123",
     });
     await bridge.remove("reminder-1");
@@ -82,10 +80,6 @@ describe("HermesCronBridge", () => {
           "reminder-1",
           "--schedule",
           "0 9 * * 6",
-          "--prompt",
-          "Take bins out",
-          "--name",
-          "Bins tomorrow",
           "--deliver",
           "discord:123",
         ],

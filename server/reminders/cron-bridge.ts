@@ -31,6 +31,11 @@ export type ReminderJobInput = {
   origin?: ReminderOrigin;
 };
 
+export type ReminderEditInput = {
+  schedule: string;
+  deliver: string;
+};
+
 type Execute = (
   command: string,
   arguments_: string[],
@@ -157,25 +162,16 @@ export class HermesCronBridge {
     await this.execute("hermes", ["cron", "resume", jobId]);
   }
 
-  async update(jobId: string, input: ReminderJobInput): Promise<void> {
+  async update(jobId: string, input: ReminderEditInput): Promise<void> {
     await this.execute("hermes", [
       "cron",
       "edit",
       jobId,
       "--schedule",
       input.schedule,
-      "--prompt",
-      input.prompt,
-      "--name",
-      input.name,
       "--deliver",
-      deliveryFor(input),
+      input.deliver,
     ]);
-    if (input.origin) {
-      const origins = await this.originStore.load();
-      origins[jobId] = input.origin;
-      await this.originStore.save(origins);
-    }
   }
 
   async remove(jobId: string): Promise<void> {

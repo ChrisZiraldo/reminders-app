@@ -83,4 +83,41 @@ describe("Reminders MCP server", () => {
     });
     await Promise.all([client.close(), server.close()]);
   });
+
+  it("rejects origin provenance when editing a reminder", async () => {
+    const bridge = {
+      list: vi.fn(),
+      create: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+    };
+    const server = createRemindersMcpServer({ bridge });
+    const client = new Client({ name: "test", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const response = await client.callTool({
+      name: "edit_reminder",
+      arguments: {
+        jobId: "job-1",
+        schedule: "0 9 * * 6",
+        deliver: "discord:123",
+        origin: {
+          platform: "discord",
+          requester: { id: "user-7" },
+          conversation: { id: "channel-42" },
+        },
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(bridge.update).not.toHaveBeenCalled();
+    await Promise.all([client.close(), server.close()]);
+  });
 });

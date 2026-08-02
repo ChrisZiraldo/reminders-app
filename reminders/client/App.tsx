@@ -52,6 +52,12 @@ function destinationLabel(job: Reminder) {
   return job.deliver;
 }
 
+function editableDestination(job: Reminder) {
+  if (job.origin)
+    return `${job.origin.platform}:${job.origin.conversation.id}`;
+  return job.deliver;
+}
+
 function PlusIcon() {
   return (
     <span className="qa-icon" aria-hidden="true">
@@ -189,15 +195,15 @@ export function App() {
   async function edit(job: Reminder) {
     const nextSchedule = window.prompt("Schedule", job.schedule);
     if (!nextSchedule?.trim()) return;
+    const nextDeliver = window.prompt("Destination", editableDestination(job));
+    if (!nextDeliver?.trim()) return;
     await withPending(`edit:${job.id}`, async () => {
       await request(api(`/reminders/${job.id}`), {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          name: job.name,
           schedule: nextSchedule.trim(),
-          prompt: job.name,
-          deliver: job.deliver,
+          deliver: nextDeliver.trim(),
         }),
       });
       await reload();
