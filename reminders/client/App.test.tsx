@@ -15,7 +15,7 @@ afterEach(() => {
 });
 
 describe("Reminders App", () => {
-  it("shows delivery targets and creates a reminder from the dashboard form", async () => {
+  it("labels an origin-backed reminder's Discord destination separately from its source", async () => {
     vi.stubEnv("BASE_URL", "/reminders/");
     const fetch = vi
       .fn()
@@ -57,10 +57,10 @@ describe("Reminders App", () => {
 
     render(<App />);
     expect(await screen.findByText("Take bins out")).not.toBeNull();
-    expect(screen.getByText("discord:123")).not.toBeNull();
+    expect(screen.getByText("Destination: #reminders")).not.toBeNull();
     expect(
       screen.getByText(
-        "Discord · Chris · #reminders · Weekend chores · message message-9",
+        "Source: Discord · Chris · #reminders · Weekend chores · message message-9",
       ),
     ).not.toBeNull();
     fireEvent.change(screen.getByLabelText("Reminder name"), {
