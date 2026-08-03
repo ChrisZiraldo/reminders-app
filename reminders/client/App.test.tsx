@@ -54,7 +54,7 @@ describe("Reminders App", () => {
     ).not.toBeNull();
   });
 
-  it("labels an origin-backed reminder's Discord destination separately from its source", async () => {
+  it("labels an explicit Discord destination separately from its source", async () => {
     vi.stubEnv("BASE_URL", "/reminders/");
     const fetch = vi
       .fn()
@@ -66,11 +66,11 @@ describe("Reminders App", () => {
               name: "Take bins out",
               schedule: "once at 2026-08-01 09:00",
               enabled: true,
-              deliver: "discord:123",
+              deliver: "discord:destination-dm-42",
               origin: {
                 platform: "discord",
                 requester: { id: "user-7", name: "Chris" },
-                conversation: { id: "channel-42", name: "reminders" },
+                conversation: { id: "source-dm-7", name: "Chris", type: "dm" },
                 message: { id: "message-9" },
                 thread: { id: "thread-3", name: "Weekend chores" },
               },
@@ -96,10 +96,10 @@ describe("Reminders App", () => {
 
     render(<App />);
     expect(await screen.findByText("Take bins out")).not.toBeNull();
-    expect(screen.getByText("Destination: reminders")).not.toBeNull();
+    expect(screen.getByText("Destination: discord:destination-dm-42")).not.toBeNull();
     expect(
       screen.getByText(
-        "Source: Discord · Chris · reminders · Weekend chores · message message-9",
+        "Source: Discord · Chris · DM Chris · Weekend chores · message message-9",
       ),
     ).not.toBeNull();
     fireEvent.change(screen.getByLabelText("Reminder name"), {
