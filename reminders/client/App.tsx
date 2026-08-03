@@ -56,12 +56,12 @@ function originLabel(origin: NonNullable<Reminder["origin"]>) {
 }
 
 function destinationLabel(job: Reminder) {
-  if (job.origin) return conversationLabel(job.origin.conversation);
+  if (job.deliver === "origin" && job.origin) return conversationLabel(job.origin.conversation);
   return job.deliver;
 }
 
 function editableDestination(job: Reminder) {
-  if (job.origin) return `${job.origin.platform}:${job.origin.conversation.id}`;
+  if (job.deliver === "origin" && job.origin) return `${job.origin.platform}:${job.origin.conversation.id}`;
   return job.deliver;
 }
 
