@@ -120,6 +120,7 @@ export function App() {
   const [name, setName] = useState("");
   const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("once");
   const [scheduleDate, setScheduleDate] = useState("");
+  const [scheduleTime, setScheduleTime] = useState("");
   const [scheduleText, setScheduleText] = useState("");
   const [deliver, setDeliver] = useState("origin");
   const [error, setError] = useState("");
@@ -166,8 +167,8 @@ export function App() {
 
   const schedule =
     scheduleMode === "once"
-      ? scheduleDate
-        ? `${scheduleDate}:00`
+      ? scheduleDate && scheduleTime
+        ? `${scheduleDate}T${scheduleTime}:00`
         : ""
       : scheduleText.trim();
 
@@ -187,6 +188,7 @@ export function App() {
       });
       setName("");
       setScheduleDate("");
+      setScheduleTime("");
       setScheduleText("");
       await reload();
     });
@@ -280,12 +282,20 @@ export function App() {
                   </button>
                 </div>
                 {scheduleMode === "once" ? (
-                  <input
-                    aria-label="Schedule"
-                    type="datetime-local"
-                    value={scheduleDate}
-                    onChange={(event) => setScheduleDate(event.target.value)}
-                  />
+                  <div className="schedule-once-fields">
+                    <input
+                      aria-label="Schedule date"
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(event) => setScheduleDate(event.target.value)}
+                    />
+                    <input
+                      aria-label="Schedule time"
+                      type="time"
+                      value={scheduleTime}
+                      onChange={(event) => setScheduleTime(event.target.value)}
+                    />
+                  </div>
                 ) : (
                   <input
                     aria-label="Schedule"

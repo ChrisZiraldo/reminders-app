@@ -157,8 +157,11 @@ describe("Reminders App", () => {
     fireEvent.change(screen.getByLabelText("Reminder name"), {
       target: { value: "Take bins out" },
     });
-    fireEvent.change(screen.getByLabelText("Schedule"), {
-      target: { value: "2026-08-01T09:00" },
+    fireEvent.change(screen.getByLabelText("Schedule date"), {
+      target: { value: "2026-08-01" },
+    });
+    fireEvent.change(screen.getByLabelText("Schedule time"), {
+      target: { value: "09:00" },
     });
     fireEvent.change(screen.getByLabelText("Delivery target"), {
       target: { value: "discord:123" },
